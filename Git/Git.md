@@ -369,3 +369,94 @@ Si sueles utilizar `git pull` y quieres que la opción `--rebase` esté activada
 Si consideras la reorganización como una manera de limpiar tu trabajo y tus confirmaciones antes de enviarlas (push), y si solo reorganizas confirmaciones (commits) que nunca han estado disponibles públicamente, no tendrás problemas. Si reorganizas (rebase) confirmaciones (commits) que ya estaban disponibles públicamente y la gente había basado su trabajo en ellas, entonces prepárate para tener problemas, frustrar a tu equipo y ser despreciado por tus compañeros.
 
 Si tu compañero o tú ven que aun así es necesario hacerlo en algún momento, asegúrense que todos sepan que deben ejecutar `git pull --rebase` para intentar aliviar en lo posible la frustración.
+
+##Git en el Servidor
+###Los Protocolos
+Git puede usar cuatro protocolos principales para transferir datos: Local, HTTP, Secure Shell (SSH) y Git. Vamos a ver en qué consisten y las circunstancias en que querrás (o no) utilizar cada uno de ellos.
+
+####Local Protocol
+Para clonar un repositorio como estos, o para añadirlo como remoto a un proyecto ya existente, usa el camino (path) del repositorio como su URL. Por ejemplo, para clonar un repositorio local, puedes usar algo como:
+
+    git clone /opt/git/project.git
+O como:
+
+    git clone file:///opt/git/project.git
+Para añadir un repositorio local a un proyecto Git existente, puedes usar algo como:
+
+    git remote add local_proj /opt/git/project.git
+Con lo que podrás enviar (push) y recibir (pull) desde dicho remoto exactamente de la misma forma a como lo harías a través de una red.
+
+####Protocolos HTTP
+El protocolo HTTP “Inteligente” funciona de forma muy similar a los protocolos SSH y Git, pero se ejecutan sobre puertos estándar HTTP/S y pueden utilizar los diferentes mecanismos de autenticación HTTP. Esto significa que puede resultar más fácil para los usuarios, puesto que se pueden identificar mediante usuario y contraseña (usando la autenticación básica de HTTP) en lugar de usar claves SSH.
+
+####El Procotolo SSH
+SSH es un protocolo muy habitual para alojar repositorios Git en hostings privados. Esto es así porque el acceso SSH viene habilitado de forma predeterminada en la mayoría de los servidores, y si no es así, es fácil de habilitarlo. Además, SSH es un protocolo de red autenticado, y es sencillo de utilizar.
+
+####El protocolo Git
+El protocolo Git es un demonio (daemon) especial, que viene incorporado con Git. Escucha por un puerto dedicado (9418), y nos da un servicio similar al del protocolo SSH; pero sin ningún tipo de autentificación.
+
+###Configurando Git en un servidor
+Para configurar por primera vez un servidor de Git, hay que exportar un repositorio existente en un nuevo repositorio vacío - un repositorio que no contiene un directorio de trabajo. Esto es generalmente fácil de hacer. Para clonar el repositorio con el fin de crear un nuevo repositorio vacío, se ejecuta el comando `clone` con la opción `--bare`. 
+
+###Colocando un Repositorio Vacío en un Servidor
+Ahora que tienes una copia vacía de tú repositorio, todo lo que necesitas hacer es ponerlo en un servidor y establecer sus protocolos.
+
+###Git en un alojamiento externo
+Actualmente hay bastantes opciones de alojamiento para elegir, cada una con sus ventajas e inconvenientes. Para ver una lista actualizada, mira la página acerca de alojamiento Git en el wiki principal de Git, en [esta pagina](https://git.wiki.kernel.org/index.php/GitHosting).
+
+##Git en entornos distribuidos
+###Pautas de confirmación
+En primer lugar, no desea enviar ningún error de espacios en blanco. Git proporciona una manera fácil de verificar esto: antes de comprometerse, ejecute `git diff --check`, que identifica posibles errores de espacio en blanco y los enumera por usted.
+Si algunos de los cambios modifican el mismo archivo, intente utilizar `git add --patch` para representar parcialmente los archivos (se detalla en << _ interactive_staging >>).
+Intenta ejecutar `git log --no-merges` allí para ver cómo se ve un historial de commit de proyecto muy bien formateado.
+###Contribuyendo a un proyecto
+El comando `request-pull` toma la rama base en la que desea que se saque su rama de tema y la URL del repositorio de Git de la que desea que extraigan, y genera un resumen de todos los cambios que está solicitando.
+Utiliza `git format-patch` para generar los archivos con formato mbox que puedes enviar por correo electrónico a la lista: convierte cada confirmación en un mensaje de correo electrónico con la primera línea del mensaje de confirmación como tema y el resto de el mensaje más el parche que introduce el compromiso como el cuerpo. Lo bueno de esto es que la aplicación de un parche de un correo electrónico generado con `format-patch` conserva toda la información de compromiso correctamente. El comando `format-patch` imprime los nombres de los archivos de parche que crea. El modificador `-M` le dice a Git que busque cambios de nombre.
+
+it proporciona una herramienta para ayudarlo a enviar parches con formato correcto a través de IMAP, que puede ser más fácil para usted. Demostraremos cómo enviar un parche a través de Gmail, que es el agente de correo electrónico que mejor conocemos; puede leer instrucciones detalladas para una cantidad de programas de correo al final del archivo Documentation / SubmittingPatches antes mencionado en el código fuente de Git.
+
+Primero, necesitas configurar la sección imap en tu archivo `~ / .gitconfig`. Puede establecer cada valor por separado con una serie de comandos `git config`, o puede agregarlos manualmente, pero al final su archivo de configuración debería verse más o menos así:
+
+    [imap]
+        folder = "[Gmail]/Drafts"
+        host = imaps://imap.gmail.com
+        user = user@gmail.com
+        pass = p4ssw0rd
+        port = 993
+        sslverify = false
+Si su servidor IMAP no usa SSL, las dos últimas líneas probablemente no sean necesarias, y el valor del host será `imap: //` en lugar de `imaps: //`. Cuando esté configurado, puede usar `git send-email` para colocar la serie de parches en la carpeta Borradores del servidor IMAP especificado:
+    git send-email *.patch
+
+###Manteniendo un proyecto
+Si recibes por e-mail un parche que necesitas integrar en tu proyecto, deberías aplicarlo en tu rama puntual para evaluarlo. Hay dos formas de aplicar un parche enviado por e-mail: con `git apply` o `git am`.
+
+Si recibiste el parche de alguien que lo generó con git diff o con el comando Unix diff, puedes aplicarlo con el comando `git apply`. También puedes usar `git apply` para comprobar si un parche se aplica de forma limpia antes de aplicarlo realmente – puedes ejecutar `git apply --check` indicando el parche.
+
+Para aplicar un parche generado con format-patch, usa `git am`. Técnicamente, `git am` se construyó para leer de un archivo mbox (buzón de correo). Es un formato de texto plano simple para almacenar uno o más mensajes de correo en un archivo de texto.
+
+En el contexto del comando `diff`, puedes poner tres puntos tras el nombre de una rama para hacer un `diff` entre el último commit de la rama en la que estás y su ancestro común con otra rama:
+
+    git diff master...contrib
+Este comando sólo muestra el trabajo introducido en tu rama puntual actual desde su ancestro común con la rama master. Es una sintaxis muy útil a recordar.
+
+Otra forma de mover trabajo de una rama a otra es entresacarlo (cherry-pick). En Git, "entresacar" es como hacer un rebase para un único commit. Toma el parche introducido en un commit e intenta reaplicarlo en la rama en la que estás actualmente. Esto es útil si tienes varios commits en una rama puntual y sólo quieres integrar uno de ellos, o si sólo tienes un commit en una rama puntual y prefieres entresacarlo en lugar de hacer una reorganización (rebase).
+
+Rerere significa “reuse recorded resolution” (reutilizar resolución grabada) – es una forma de simplificar la resolución de conflictos. Cuando rerere está activo, Git mantendrá un conjunto de imágenes anteriores y posteriores a las integraciones correctas, de forma que si detecta que hay un conflicto que parece exactamente igual que otro ya corregido previamente, usará esa misma corrección sin causarte molestias.
+Esta funcionalidad consta de dos partes: un parámetro de configuración y un comando. El parámetro de configuración es rerere.enabled y es bastante útil ponerlo en tu configuración global:
+
+    git config --global rerere.enabled true
+Ahora, cuando hagas una integración que resuelva conflictos, la resolución se grabará en la caché por si la necesitas en un futuro.
+
+Como Git no genera una serie de números monótonamente creciente como v123 o similar con cada commit, si quieres tener un nombre más comprensible para un commit, puedes ejecutar el comando `git describe` sobre dicho commit. Git devolverá el nombre de la etiqueta más próxima junto con el número de commits sobre esa etiqueta y una parte del valor SHA-1 del commit que estás describiendo.
+
+Ahora quieres lanzar una versión. Una cosa que querrás hacer será crear un archivo con la última instantánea del código para esas pobres almas que no usan Git. El comando para hacerlo es `git archive`:
+
+    git archive master --prefix='project/' | gzip > `git describe master`.tar.gz
+    ls *.tar.gz
+    v1.6.2-rc1-20-g8c5b85c.tar.gz
+Si alguien abre el archivo tar, obtiene la última instantánea de tu proyecto bajo un directorio project. También puedes crear un archivo zip de la misma manera, pero añadiendo la opción `--format=zip` a `git archive`:
+
+    git archive master --prefix='project/' --format=zip > `git describe master`.zip
+Ahora tienes tanto un archivo tar como zip con la nueva versión de tu proyecto, listos para subirlos a tu sitio web o para enviarlos por e-mail.
+
+Es el momento de enviar un mensaje a tu lista de correo informando sobre el estado de tu proyecto. Una buena opción para obtener rápidamente una especie de lista con los cambios introducidos en tu proyecto desde la última versión o e-mail es usar el comando `git shortlog`. Dicho comando resume todos los commits en el rango que se le indique.
